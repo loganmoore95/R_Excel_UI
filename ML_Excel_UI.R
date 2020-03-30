@@ -1,7 +1,6 @@
 # Collect the arguments that the excel file has supplied to the command line
 args <- commandArgs(trailingOnly = T)
 
-# To avoid unnecessary output on the excel end, invisible() is used,
 
 # Load required packages, installing if needed.
 if(!require(pacman))install.packages("pacman")
@@ -58,7 +57,7 @@ TRAINDATA <- DATA[trainind,]
 VALDATA <- DATA[valind,]
 TESTDATA <- DATA[testind,]
   
-# Because some algorithms will not reqiure tuning, we need a data fram of the combined train and validation set
+# Combine the train and validation into a single dataset
 TRAINBIGDATA <- rbind(TRAINDATA,VALDATA)
   
 # Assign the Y values as factors
@@ -74,21 +73,21 @@ yTEST <- as.factor(yTEST[,1])
 yTRAINBIG <- as.data.frame(TRAINBIGDATA[yvalue])
 yTRAINBIG <- as.factor(yTRAINBIG[,1])
   
-# Remove the Y value from the other tables, as it is no longer needed
+# Remove the Y value from the other dataframes
 TRAINDATA <- TRAINDATA[xvalues]
 VALDATA <- VALDATA[xvalues]
 TESTDATA <- TESTDATA[xvalues]
 TRAINBIGDATA <- TRAINBIGDATA[xvalues]
 NEWDATA <- NEWDATA[xvalues]
 
-# Create a dataframe to hold the results of our models
+# Create a dataframe to hold the results of the models
 RESULTS <- data.frame(Algorithm = as.character(c("Naive Bayes","Stepwise Logistic Regression","Lasso Logistic Regression",
                                                  "Neural Network", "K-Nearest Neighbors", "Decision Tree", "Bagged Trees",
                                                  "Random Forest", "Adaptive Boosting", "Rotation Forest")), 
                       AUC_ROC = as.numeric(NA), Sensitivity = as.numeric(NA), Specificity = as.numeric(NA),
                       Accuracy = as.numeric(NA), TopDecileLift = as.numeric(NA))
 
-# Create a dataframe to hold the predictions of our models
+# Create a dataframe to hold the predictions of the models
 PREDICTIONS <- data.frame(a = as.numeric(rep(0,nrow(NEWDATA))), b = as.numeric(0), c = as.numeric(0), 
                            d = as.numeric(0), e = as.numeric(0), f = as.numeric(0),
                            g = as.numeric(0), h = as.numeric(0), i = as.numeric(0),
@@ -105,25 +104,23 @@ if(NaiveBayes == 1){
   # Fit the NaiveBayes model
   NB <-naiveBayes(x=TRAINBIGDATA, y=yTRAINBIG)
   
-  # Use the model to predict on our test data
-  # note that type can be changed to "class" to get labels
+  # Use the model to predict on the test data
   predNB <- predict(NB, TESTDATA, type = "raw")[,2]
   
-  # Store the accuracy of the model in the results dataframe
-  
+  # Store the accuracy
   RESULTS$AUC_ROC[1] <-  round(AUC::auc(roc(predNB,yTEST)),4)
   RESULTS$Sensitivity[1] <- round(AUC::auc(sensitivity(predNB,yTEST)),4)
   RESULTS$Specificity[1] <- round(AUC::auc(specificity(predNB,yTEST)),4)
   RESULTS$Accuracy[1] <- round(AUC::auc(accuracy(predNB,yTEST)),4)
   RESULTS$TopDecileLift[1] <- round(TopDecileLift(predNB,yTEST),4)
   
-  # Predict the new data with this model
+  # Generate predictions for new data
   predNBnew <- predict(NB, NEWDATA, type = "raw")[,2]
   
-  # Place the predictions in the predictions data frame
+  # Store the predictions
   PREDICTIONS$`Naive Bayes` <- round(predNBnew,5)
   
-  # Remove unneeded items from memory
+  # Clean up memory
   rm(list = c('NB','predNB','predNBnew'))
 }
 
@@ -138,24 +135,24 @@ if(SLogistic == 1){
   # Run a stepwise bi-directional variable selection process
   LRstep <- step(SLR, direction = "both", trace = FALSE)
   
-  # Use this model to make a prediction on our test data.
+  # Use this model to predict on on the test data.
   predLRstep <- predict(LRstep,
                         newdata = TESTDATA,
                         type = "response")
   
-  # And let's assess the performance of the model
+  # Store the accuracy
   RESULTS$AUC_ROC[2] <- round(AUC::auc(roc(predLRstep,yTEST)),4)
   RESULTS$Sensitivity[2] <- round(AUC::auc(sensitivity(predLRstep,yTEST)),4)
   RESULTS$Specificity[2] <- round(AUC::auc(specificity(predLRstep,yTEST)),4)
   RESULTS$Accuracy[2] <- round(AUC::auc(accuracy(predLRstep,yTEST)),4)
   RESULTS$TopDecileLift[2] <- round(TopDecileLift(predLRstep,yTEST),4)
   
-  # Let's use the estimated model to predict on the new data
+  # Predict on the new data
   predLRstepnew <- predict(LRstep,
                            newdata = NEWDATA,
                            type = "response")
   
-  # Place predictions in the predictions dataframe
+  # Store the predictions
   PREDICTIONS$`Stepwise Logistic Regression` <- round(predLRstepnew,5)
   # Clean up memory
   rm(list = c('SLR','LRstep','predLRstep','predLRstepnew'))
@@ -169,8 +166,10 @@ if(RLogistic == 1){
                y = yTRAIN,
                family = 'binomial')
   
+  # Create aucstore to hold model AUC
   aucstore <- numeric()
   
+  # Fit a model for each lambda, save the AUC
   for(i in 1:length(RLR$lambda)){
     predglmnet <- predict(RLR,
                           newx = data.matrix(VALDATA),
@@ -179,31 +178,36 @@ if(RLogistic == 1){
     aucstore[i] <- AUC::auc(roc(as.numeric(predglmnet),yVAL))
   }
   
+  # Save the lambda resulting in the max AUC
   RLR.lambda <- RLR$lambda[which.max(aucstore)]
   
+  # Fit the model
   RLR <- glmnet(x = data.matrix(TRAINBIGDATA),
                y = yTRAINBIG,
                family = "binomial")
   
+  # Predict on the test data
   predRLR <- as.numeric(predict(RLR,
                                   newx = data.matrix(TESTDATA),
                                   type = "response",
                                   s=RLR.lambda))
   
+  # Store the results
   RESULTS$AUC_ROC[3] <- round(AUC::auc(roc(predRLR,yTEST)),4)
   RESULTS$Sensitivity[3] <- round(AUC::auc(sensitivity(predRLR,yTEST)),4)
   RESULTS$Specificity[3] <- round(AUC::auc(specificity(predRLR,yTEST)),4)
   RESULTS$Accuracy[3] <- round(AUC::auc(accuracy(predRLR,yTEST)),4)
   RESULTS$TopDecileLift[3] <- round(TopDecileLift(predRLR,yTEST),4)
   
-  # Now use the estimated model to predict on the new data
+  # Predict new data
   predRLRnew <- as.numeric(predict(RLR,
                                    newx = data.matrix(NEWDATA),
                                    type = "response",
                                    s = RLR.lambda))
   
-  # Place predictions in the predictions data frame
+  # Store predictions
   PREDICTIONS$`Lasso Logistic Regression` <- round(predRLRnew, 5)
+  
   # Clean up memory
   rm(list = c('RLR','aucstore','predglmnet','RLR.lambda','predRLR','predRLRnew'))
 }
@@ -213,15 +217,14 @@ if(NNet == 1){
   # Load an external function to tune the neural net
   source("http://ballings.co/hidden/aCRM/code/chapter2/tuneMember.R")
   
-  # First, we need to scale the data to range [0,1] to avoid scaling problems.
+  # Scale the data
   TRAINDATAnumID <- sapply(TRAINDATA, is.numeric)
   TRAINDATAnum <- TRAINDATA[, TRAINDATAnumID]
   
   minima <- sapply(TRAINDATAnum, min)
   scaling <- sapply(TRAINDATAnum, max)-minima
   
-  # Center is subtracted from each column. Because we use the minima this sets the minimum to zero. 
-  # Each column is then divided by scale. Because we use the range this sets the maximum to one.
+  # Center each column and divide by scale
   TRAINDATAscaled <- data.frame(base::scale(TRAINDATAnum,
                                                  center = minima,
                                                  scale = scaling),
@@ -245,7 +248,7 @@ if(NNet == 1){
   tuning <- list(size=NN.size, decay=NN.decay)
   
   # Now to tune the neural net.
-  # Let's scale the validation data
+  # Scale the validation data
   VALnum <- VALDATA[, TRAINDATAnumID]
   VALDATAscaled <- data.frame(base::scale(VALnum,
                                                     center = minima,
@@ -253,13 +256,14 @@ if(NNet == 1){
                                         VALDATA[, !TRAINDATAnumID])
   colnames(VALDATAscaled) <- colnames(TRAINDATAscaled)
   
+  # Tune
   result <- tuneMember(call = call,
                         tuning = tuning,
                         xtest = VALDATAscaled,
                         ytest = yVAL,
                         predicttype = "raw")
   
-  # Now let's create the final model
+  # Create the final model
   TRAINBIGDATAnum <- TRAINBIGDATA[, TRAINDATAnumID]
   TRAINBIGDATAscaled <- data.frame(base::scale(TRAINBIGDATAnum,
                                                     center=minima,
@@ -268,6 +272,7 @@ if(NNet == 1){
   colnames(TRAINBIGDATAscaled) <- c(colnames(TRAINBIGDATA)[TRAINDATAnumID],
                                          colnames(TRAINBIGDATA)[!TRAINDATAnumID])
   
+  # Use invisible() to catch unnecessary output
 invisible(capture.output(NN <- nnet(yTRAINBIG ~ .,
              TRAINBIGDATAscaled,
              size = result$size,
@@ -276,7 +281,7 @@ invisible(capture.output(NN <- nnet(yTRAINBIG ~ .,
              maxit = NN.maxit,
              trace = TRUE,
              MaxNWts = Inf)))  
-  
+  # Scale test data
   TESTBIGDATAnum <- TESTDATA[, TRAINDATAnumID]
   TESTDATAscaled <- data.frame(base::scale(TESTBIGDATAnum,
                                                 center=minima,
@@ -285,10 +290,10 @@ invisible(capture.output(NN <- nnet(yTRAINBIG ~ .,
   
   colnames(TESTDATAscaled) <- c(colnames(TESTBIGDATAnum)[TRAINDATAnumID],
                                      colnames(TESTBIGDATAnum)[!TRAINDATAnumID])
-  
+  # Predict test data
   predNN <- as.numeric(predict(NN, TESTDATAscaled, type="raw"))
   
-  # Record the performance metrics
+  # Store the performance
   RESULTS$AUC_ROC[4] <- round(AUC::auc(roc(predNN,yTEST)),4)
   RESULTS$Sensitivity[4] <- round(AUC::auc(sensitivity(predNN,yTEST)),4)
   RESULTS$Specificity[4] <- round(AUC::auc(specificity(predNN,yTEST)),4)
@@ -296,7 +301,7 @@ invisible(capture.output(NN <- nnet(yTRAINBIG ~ .,
   RESULTS$TopDecileLift[4] <- round(TopDecileLift(predNN,yTEST),4)
   
   
-  # Now let's scale the new data.
+  # Scale the new data.
   NEWDATAnumID <- sapply(NEWDATA, is.numeric)
   NEWDATAnum <- NEWDATA[, NEWDATAnumID]
   
@@ -315,7 +320,7 @@ invisible(capture.output(NN <- nnet(yTRAINBIG ~ .,
   # Predict the new data
   predNNnew <- as.numeric(predict(NN, NEWDATAscaled, type="raw"))
   
-  # Place predictions in the predictions dataframe
+  # Store predictions
   PREDICTIONS$`Neural Network` <- round(predNNnew, 5)
   
   # Clean up memory
@@ -328,7 +333,7 @@ invisible(capture.output(NN <- nnet(yTRAINBIG ~ .,
 
 if(KNN == 1){
   print("Beginning K-Nearest Neighbors estimation.")
-  # The KNNX function requires all indicators to be numeric, so let's convert all data to the appropriate form.
+  # Convert all data to numeric form
   trainKNN <- data.frame(sapply(TRAINDATA, function(x) as.numeric(as.character(x))))
   
   trainKNNbig <- data.frame(sapply(TRAINBIGDATA, function(x) as.numeric(as.character(x))))
@@ -339,8 +344,7 @@ if(KNN == 1){
   
   newdataKNN <- data.frame(sapply(NEWDATA, function(x) as.numeric(as.character(x))))
   
-  # The distance function (Euclidean distance) is sensitive to the scale of the variables. 
-  # Therefore we need to standardize the variables first.
+  # Standardize the variables
   stdev <- sapply(trainKNN, sd)
   means <- sapply(trainKNN, mean)
   
@@ -350,10 +354,10 @@ if(KNN == 1){
   testKNN <- data.frame(t((t(testKNN)-means)/stdev))
   newdataKNN <- data.frame(t((t(newdataKNN)-means)/stdev))
   
-  # We will start by evaluating the 10 nearest neighbors
+  # Start with 10 nearest neighbors
   k <- 10
   
-  # If we want to tune, it comes down to evaluating which value for k is best
+  # Tune for k
   auc <- numeric()
   for(k in 1:nrow(trainKNN)){
     # retrieve the indicators of the k nearest neighbors of the query data
@@ -363,7 +367,7 @@ if(KNN == 1){
     # retrieve the actual y from the training set
     predKNN <- as.integer(as.character(yTRAIN[indicatorsKNN]))
     
-    # if k > 1 then we take the proportion of 1s
+    # if k > 1 then take the proportion of 1s
     predKNN <- rowMeans(data.frame(matrix(data = predKNN,
                                           ncol = k,
                                           nrow = nrow(valKNN))))
@@ -381,18 +385,19 @@ if(KNN == 1){
   # retrieve the actual y from the training set
   predKNNoptimal <- as.integer(as.character(yTRAINBIG[indicatorsKNN]))
   
-  # if k>1 then we take the proportion of 1s
+  # if k>1 then take the proportion of 1s
   predKNNoptimal <- rowMeans(data.frame(matrix(data=predKNNoptimal,
                                                ncol = k,
                                                nrow = nrow(testKNN))))
   
+  # Store the performance
   RESULTS$AUC_ROC[5] <- round(AUC::auc(roc(predKNNoptimal, yTEST)),4)
   RESULTS$Sensitivity[5] <- round(AUC::auc(sensitivity(predKNNoptimal,yTEST)),4)
   RESULTS$Specificity[5] <- round(AUC::auc(specificity(predKNNoptimal,yTEST)),4)
   RESULTS$Accuracy[5] <- round(AUC::auc(accuracy(predKNNoptimal,yTEST)),4)
   RESULTS$TopDecileLift[5] <- round(TopDecileLift(predKNNoptimal,yTEST),4)
   
-  # Now for the new data
+  # Create indicators for new data
   newindicatorsKNN <- as.integer(knnx.index(data = trainKNNbig,
                                          query = newdataKNN,
                                          k=k))
@@ -400,12 +405,12 @@ if(KNN == 1){
   # retrieve the actual y from the training set
   prednewKNNoptimal <- as.integer(as.character(yTRAINBIG[newindicatorsKNN]))
   
-  # if k>1 then we take the proportion of 1s
+  # if k>1 then take the proportion of 1s
   prednewKNNoptimal <- rowMeans(data.frame(matrix(data=prednewKNNoptimal,
                                                ncol = k,
                                                nrow = nrow(newdataKNN))))
   
-  # Place predictions in predictions dataframe
+  # Store predictions 
   PREDICTIONS$`K-Nearest Neighbors` <- round(prednewKNNoptimal,5)
   
   # Clean up memory
@@ -417,12 +422,12 @@ if(KNN == 1){
 if(DT == 1){
   print("Beginning Decision Tree estimation.")
   
-  # Estimate a tree model where we cross validate the cp parameter
-  # cp sets the minimum amount the model needs to be improved for a split to be made
+  # Set possible cp values
   candidates <- seq(0.00001, 0.2, by=0.001)
   aucstore <- numeric(length(candidates))
   j <- 0
   
+  # Estimate the model and store the AUC for each cp value
   for(i in candidates) {
     j <- j+1
     tree <- rpart(yTRAIN ~ ., 
@@ -432,13 +437,15 @@ if(DT == 1){
     aucstore[j] <- AUC::auc(roc(predTree,yVAL))
   }
   
-  # Next we train the model on TRAINbig with the optimal cp and confirm the final performance on the test set
-  
+  # Train on TRAINBIG with optimal cp
   tree <- rpart(yTRAINBIG ~ .,
                 control = rpart.control(cp=candidates[which.max(aucstore)]),
                 TRAINBIGDATA)
+  
+  # Predict on test data
   predTREE <- predict(tree, TESTDATA)[,2]
   
+  # Store performance
   RESULTS$AUC_ROC[6] <- round(AUC::auc(roc(predTREE,yTEST)),4)
   RESULTS$Sensitivity[6] <- round(AUC::auc(sensitivity(predTREE,yTEST)),4)
   RESULTS$Specificity[6] <- round(AUC::auc(specificity(predTREE,yTEST)),4)
@@ -448,7 +455,7 @@ if(DT == 1){
   # Classify the new data with the tree
   predTREEnew <- predict(tree, NEWDATA)[,2]
   
-  # Place predictions in predictions dataframe
+  # Store predictions
   PREDICTIONS$`Decision Tree`<-round(predTREEnew,5)
   
   # Clean up memory
@@ -478,9 +485,10 @@ if(BT == 1){
     baggedpredictions[,i] <- as.numeric(predict(ensembleoftrees[[i]],
                                                 TESTDATA)[,2])
   }
-  
+  # Get final prediction
   finalprediction <- rowMeans(baggedpredictions)
   
+  # Store performance
   RESULTS$AUC_ROC[7] <- round(AUC::auc(roc(finalprediction, yTEST)),4)
   RESULTS$Sensitivity[7] <- round(AUC::auc(sensitivity(finalprediction,yTEST)),4)
   RESULTS$Specificity[7] <- round(AUC::auc(specificity(finalprediction,yTEST)),4)
@@ -499,7 +507,7 @@ if(BT == 1){
   
   finalpredictionnew <- rowMeans(baggedpredictionsnew)
   
-  # Place predictions in the predictions data frame
+  # Store predictions
   PREDICTIONS$`Bagged Trees` <- round(finalpredictionnew,5)
   
   # Clean up memory
@@ -510,9 +518,6 @@ if(BT == 1){
 if(RF == 1){
   print("Beginning Random Forest estimation.")
   
-  # When estimating a random forest model the number of trees must be specified
-  # Inherent randomization between each tree make tuning the tree parameter infeasible.
-  # Therefore, two random forests are fit with 500 and 1000 trees and the maximum AUC is selected.
   aucstore<-numeric()
   # Fit Random forest with 1000 trees
   rFmodelTHOU <- randomForest(x=TRAINBIGDATA,
@@ -628,8 +633,6 @@ if(RotF == 1){
 # Remove the models not tested from the results data frame
 RESULTS <- RESULTS[complete.cases(RESULTS),]
 
-# The last arguments provided in the Macro Workbook specify the number of model performances,
-# and distinct prediction sets to return, along with the critical performance metric.
 
 # Order the rows in RESULTS in decending order by critical performance metric
 if(PM == "AOC_ROC"){RESULTS <- RESULTS[order(-RESULTS$AUC_ROC),]}
