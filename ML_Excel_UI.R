@@ -3,83 +3,10 @@ args <- commandArgs(trailingOnly = T)
 
 #To avoid unnecessary output on the excel end, invisible() is used,
 
-#Read in necessary packages. 
-if (!require("readxl")) {
-  install.packages('readxl',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('readxl')
-}
+# Load required packages, installing if needed.
+if(!require(pacman))install.packages("pacman")
+pacman::p_load("readxl", "AUC", "e1071", "glmnet", "nnet", "FNN", "rpart", "randomForest", "ada", "rotationForest", "lift")
 
-if (!require("AUC")) {
-  install.packages('AUC',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('AUC')
-}
-
-if (!require("e1071")) {
-  install.packages('e1071',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('e1071')
-}
-
-if (!require("glmnet")) {
-  install.packages('glmnet',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('glmnet')
-}
-
-if (!require("nnet")) {
-  install.packages('nnet',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('nnet')
-}
-
-if (!require("FNN")) {
-  install.packages('FNN',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('FNN')
-}
-
-if (!require("rpart")) {
-  install.packages('rpart',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('rpart')
-}
-
-if (!require("randomForest")) {
-  install.packages('randomForest',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('randomForest')
-}
-
-if (!require("ada")) {
-  install.packages('ada',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('ada')
-}
-
-if (!require("rotationForest")) {
-  install.packages('rotationForest',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('rotationForest')
-}
-
-if (!require("lift")) {
-  install.packages('lift',
-                   repos="https://cran.rstudio.com/",
-                   quiet = TRUE)
-  require('lift')
-}
 
 #Load the arguments from the command line
 filepath <- as.character(args[1])
