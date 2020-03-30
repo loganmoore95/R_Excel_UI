@@ -5,6 +5,22 @@ The purpose of this project is to enable those who have little to no experience 
 
 This is the first version of this Workbook, thus the scope and flexibility of its usage is limited to fitting models and producing probabilistic predictions for binary response variables. Future versions will incorporate further parameter tuning, model optimization, and data visualization.
 
+## Getting Started ##
+To ensure MachineLearningWorkbook.xlsm functions properly, the following actions are required:
+1. Download R:  
+R is a free, open source environment for statistical computing. It can be downloaded [here](https://www.r-project.org/)  
+
+2. Save ML_Excel_UI.R to C:\R_code
+
+3. Add R to the User Variable Path:  
+This Workbook uses the command line to pass arguments to R. In order for this to function properly, R Must be added to the User Variable Path. Instructions on completeing this step are included in MachineLearningWorkbook.xlsm on the 'R Path Instructions' worksheet.  
+Alternatively, you can check out the first section of [this blog](http://shashiasrblog.blogspot.com/2013/10/vba-front-end-for-r.html) for help with this step.
+
+When these steps are complete, open MachineLearningWorkbook.xlsm and view the Instructions worksheet to begin.
+
+
+
+
 ## Functionality ##
 
 The Excel Workbook loads with sample customer attrition data by default. The user can easily replace the sample data with their own dataset. This project currently supports 10 popular Supervised Learning Algorithms.
